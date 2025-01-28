@@ -1,0 +1,12 @@
+--2025-01-14 17:05:01--  https://upload.wikimedia.org/wikipedia/commons/1/1f/WebAssembly_Logo.svg
+Loaded CA certificate '/etc/ssl/certs/ca-certificates.crt'
+Resolving upload.wikimedia.org (upload.wikimedia.org)... 185.15.59.240, 2a02:ec80:300:ed1a::2:b
+Connecting to upload.wikimedia.org (upload.wikimedia.org)|185.15.59.240|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 709 [image/svg+xml]
+Saving to: ‘WebAssembly_Logo.svg’
+
+     0K                                                       100% 9,47M=0s
+
+2025-01-14 17:05:01 (9,47 MB/s) - ‘WebAssembly_Logo.svg’ saved [709/709]
+
