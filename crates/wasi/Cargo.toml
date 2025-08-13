@@ -1,0 +1,13 @@
+[package]
+name = "wasi"
+version = "0.1.0"
+authors = ["Andreas Fitzek"]
+license = "MIT"
+edition = "2021"
+exclude = ["index.node"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+waki = { version = "0.4.2", features = ["json", "multipart"] }
+serde = { version = "1.0.202", features = ["derive"] }

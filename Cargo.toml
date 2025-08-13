@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/neon-wasm-module", "crates/wasi"]
+resolvers = "2"

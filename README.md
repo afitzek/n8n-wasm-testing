@@ -41,6 +41,16 @@ These are the basic steps for working with the starter. For detailed guidance on
 
 Refer to our [documentation on creating nodes](https://docs.n8n.io/integrations/creating-nodes/) for detailed information on building your own nodes.
 
+## Still WIP
+
+This implements a simple node native module in Rust to leverage the wasmtime runtime to execute WASM executables.
+It supports the wasi preview 2 and wasi http extensions. Other extensions can be added using the wasmtime-wasi crates.
+
+This module could also be extended to support dynamic wasm context setup. Like wasi preview 1 or custom host functions.
+
+This is not deployable yet only works for local development. One has to build the node extension and copy the index.node file to the correct platform package. The platform package also needs to be npm linked to the n8n custom nodes
+folder.
+
 ## License
 
 [MIT](https://github.com/n8n-io/n8n-nodes-starter/blob/master/LICENSE.md)

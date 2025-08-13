@@ -22,7 +22,13 @@
   "packageManager": "pnpm@9.1.4",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "cargo-build": "tsc && cargo build --message-format=json-render-diagnostics > cargo.log",
+    "cross-build": "tsc && cross build --message-format=json-render-diagnostics > cross.log",
+    "postcargo-build": "neon dist -n neon-wasm-module < cargo.log",
+    "postcross-build": "neon dist -n neon-wasm-module -m /target < cross.log",
+    "prepack": "tsc && neon update",
+    "build": "npm run cargo-build -- --release && gulp build:icons",
+    "cross": "npm run cross-build -- --release && gulp build:icons",
     "postbuild": "cp demo.wasm dist/",
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
@@ -31,7 +37,8 @@
     "prepublishOnly": "pnpm build && pnpm lint -c .eslintrc.prepublish.js nodes credentials package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "index.node"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
@@ -41,6 +48,7 @@
     ]
   },
   "devDependencies": {
+    "@neon-rs/cli": "^0.1.82",
     "@types/node": "^22.10.6",
     "@typescript-eslint/parser": "^7.15.0",
     "eslint": "^8.56.0",
@@ -50,10 +58,23 @@
     "prettier": "^3.3.2",
     "typescript": "^5.5.3"
   },
+  "neon": {
+    "type": "library",
+    "org": "@neon-wasm-module",
+    "platforms": "common",
+    "load": "./src/load.cts"
+  },
   "peerDependencies": {
     "n8n-workflow": "*"
   },
   "dependencies": {
-    "@wasmer/sdk": "^0.9.0"
+    "@neon-rs/load": "^0.1.82"
+  },
+  "optionalDependencies": {
+    "@neon-wasm-module/win32-x64-msvc": "0.1.0",
+    "@neon-wasm-module/darwin-x64": "0.1.0",
+    "@neon-wasm-module/darwin-arm64": "0.1.0",
+    "@neon-wasm-module/linux-x64-gnu": "0.1.0",
+    "@neon-wasm-module/linux-arm64-gnu": "0.1.0"
   }
 }

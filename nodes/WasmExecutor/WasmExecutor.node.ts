@@ -1,96 +1,133 @@
-
 import {
-    // IDataObject,
-    IExecuteFunctions,
-    INodeExecutionData,
-    INodeType,
-    INodeTypeDescription,
-    NodeConnectionType,
-    NodeExecutionWithMetadata,
+	// IDataObject,
+	IExecuteFunctions,
+	INodeExecutionData,
+	INodeType,
+	INodeTypeDescription,
+	NodeApiError,
+	NodeConnectionType,
+	NodeExecutionWithMetadata,
 } from 'n8n-workflow';
-
-// import {
-//     OptionsWithUri,
-// } from 'request';
-
-import { WASI } from 'node:wasi';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { argv, env } from 'node:process';
-
-// const loadWasmer = (async () => {
-//     const {
-//         init, Wasmer
-//     } = await import("@wasmer/sdk");
-
-//     try {
-//         await init();
-//     } catch(e) {
-//         console.error(`Failed to run init!`, e);
-//     }
-
-//     return Wasmer;
-// })()
+import { execute_wasm, WasiExecution } from './addon';
+import { isArgs, isEnv, isStdin } from './utils';
+import path from 'node:path';
 
 export class WasmExecutor implements INodeType {
-    description: INodeTypeDescription = {
-        displayName: 'WasmExecutor',
-        name: 'wasmExecutor',
-        icon: 'file:wasmExecutor.svg',
-        group: ['transform'],
-        version: 1,
-        description: 'Execute a wasm binary',
-        defaults: {
-            name: 'WasmExecutor',
-        },
-        inputs: [NodeConnectionType.Main],
-        outputs: [NodeConnectionType.Main],
-        properties: [
-            {
-                displayName: 'WasmBinary',
-                name: 'wasmBinary',
-                type: 'string',
-                default: '',
-                required: true,
-                description: 'A wasm binary',
-            }
-        ]
-    }
+	description: INodeTypeDescription = {
+		displayName: 'WasmExecutor',
+		name: 'wasmExecutor',
+		icon: 'file:wasmExecutor.svg',
+		group: ['transform'],
+		version: 1,
+		description: 'Execute a wasm binary',
+		defaults: {
+			name: 'WasmExecutor',
+		},
+		inputs: [NodeConnectionType.Main],
+		outputs: [NodeConnectionType.Main],
+		properties: [
+			{
+				displayName: 'WASM Executable',
+				name: 'wasmExecutable',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'A wasm executable',
+			},
+			{
+				displayName: 'Arguments',
+				name: 'args',
+				type: 'string',
+				default: '[]',
+				description: 'Arguments to pass to the wasm executable, as array',
+			},
+			{
+				displayName: 'Environment Variables',
+				name: 'env',
+				type: 'string',
+				default: '{}',
+				description: 'Environment variables to set for the wasm executable',
+			},
+			{
+				displayName: 'Stdin',
+				name: 'stdin',
+				type: 'string',
+				default: '',
+				description: 'Input to pass to the wasm executable via stdin',
+			},
+		],
+	};
 
-    async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][] | NodeExecutionWithMetadata[][] | null> {
-        const items = this.getInputData();
-        
-        const returnData = [];
-        const wasmBinary = this.getNodeParameter('wasmBinary', 0) as string;
-        // const Wasmer = await loadWasmer;
+	async execute(
+		this: IExecuteFunctions,
+	): Promise<INodeExecutionData[][] | NodeExecutionWithMetadata[][] | null> {
+		const items = this.getInputData();
+		const basePath = process.env['N8N_WASM_DIRECTORY'] ?? __dirname;
 
-        // const pkg = await Wasmer.fromRegistry(wasmBinary);
+		const returnData = [];
 
-        const wasi = new WASI({
-            version: 'preview1',
-            args: argv,
-            env,
-            preopens: {
-                '/local': '/tmp',
-            },
-        });
-        const wasm = await WebAssembly.compile(
-            await readFile(join(__dirname, wasmBinary)),
-        );
-        // For each item, make an API call to create a contact
-        for (let i = 0; i < items.length; i++) {
-            // const instance = await pkg.entrypoint!.run({
-            //     args: ["-c", "print('Hello, World!')"]
-            // });
-            // const {
-            //     code
-            // } = await instance?.wait();
-            const instance = await WebAssembly.instantiate(wasm, wasi.getImportObject() as WebAssembly.Imports);
-            const code = await wasi.start(instance);
-            returnData.push({
-                code
-            });
-        }
-        return [this.helpers.returnJsonArray(returnData)];
-    }
+		// For each item, make an API call to create a contact
+		for (let i = 0; i < items.length; i++) {
+			const wasmExecutable = this.getNodeParameter('wasmExecutable', i) as string;
+			const args = JSON.parse((this.getNodeParameter('args', i) ?? '[]') as string);
+			const env = JSON.parse((this.getNodeParameter('env', i) ?? '{}') as string);
+			const stdin = (this.getNodeParameter('stdin', i) ?? '') as string;
+
+			// TODO: Support different forms of wasm executable sources
+			// build out wasm modules lookup in directory maybe with a json manifest, etc.
+
+			const wasmFile = path.join(basePath, wasmExecutable);
+
+			if (!isArgs(args)) {
+				throw new NodeApiError(this.getNode(), {
+					message: `Invalid arguments: ${JSON.stringify(args)}`,
+				});
+			}
+
+			if (!isEnv(env)) {
+				throw new NodeApiError(this.getNode(), {
+					message: `Invalid environment variables: ${JSON.stringify(env)}`,
+				});
+			}
+
+			if (!isStdin(stdin)) {
+				throw new NodeApiError(this.getNode(), {
+					message: `Invalid stdin: ${JSON.stringify(stdin)}`,
+				});
+			}
+
+			console.log(`WasmExecutable: ${wasmFile}`);
+			const execution: WasiExecution = {
+				program: wasmFile,
+				args,
+				env,
+				stdin,
+			};
+
+			console.log(`Execution: ${JSON.stringify(execution)}`);
+
+			console.log('Executing wasm');
+			const start = performance.now();
+			const result = execute_wasm(execution);
+			const duration = performance.now() - start;
+
+			console.log('Executed wasm', result, duration);
+
+			const stdout = result.stdout?.split('\n')
+				.map((line) => line.trim())
+				.filter((line) => line) ?? [];
+
+			const stderr = result.stderr?.split('\n')
+				.map((line) => line.trim())
+				.filter((line) => line) ?? [];
+
+			returnData.push({
+				...result,
+				stdout,
+				stderr,
+				execution_time: duration,
+			});
+		}
+		return [this.helpers.returnJsonArray(returnData)];
+	}
 }
